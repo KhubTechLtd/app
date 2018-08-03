@@ -66,6 +66,7 @@ class Info:
         if os.path.exists('db.pyc'):
             from db import Database
             db = Database()
+            db.processconfiguration()
             db.create_resources()
             os.remove('db.pyc')
             if os.path.exists('License.pyc'):
@@ -171,8 +172,8 @@ class MainWindow(QtGui.QMainWindow):
         cefpython.WindowUtils.OnSetFocus(int(self.centralWidget().winId()), 0, 0, 0)
 
     def closeEvent(self, event):
-		subprocess.call(['taskkill', '/F', '/T', '/PID', str(proc.pid)])
-		self.mainFrame.browser.CloseBrowser()
+        subprocess.call(['taskkill', '/F', '/T', '/PID', str(proc.pid)])
+        self.mainFrame.browser.CloseBrowser()
 
 class MainFrame(QtGui.QWidget):
     browser = None

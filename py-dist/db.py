@@ -3,11 +3,12 @@
 
 from datetime import *
 import base64
+import json
 import os, sys, subprocess
 import psycopg2, psycopg2.extras
 from License import Generator as GetLicense
 
-dbname = 'saleor'
+dbname = 'restaurant'
 con = None
 project_dir_name="app"
 
@@ -16,10 +17,24 @@ class Database:
     def __init__(self):
         self.con = None
         self.dbhost = '127.0.0.1'
-        self.dbname = 'saleor'
-        self.dbuser = 'saleor'
-        self.dbpassword = 'saleor'
+        self.dbname = 'restaurant'
+        self.dbuser = 'restaurant'
+        self.dbpassword = 'restaurant'
         self.project_dir_name = 'app'
+
+    def processconfiguration(self):
+        config_file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '..', 'config','config.json'))
+        try:
+            with open(config_file_path) as data_file:    
+                data = json.load(data_file)
+                database_data= data["database"]
+                self.dbhost = database_data["dbhost"]
+                self.dbname = database_data["dbname"]
+                self.dbuser = database_data["dbuser"]
+                self.dbpassword = database_data["dbpassword"]
+        except Exception as e:
+            print (e)
+            print ("Failed Reading Config")
 
     def connect_postgres(self):
         self.con = psycopg2.connect(dbname='postgres',user='postgres', host='127.0.0.1',password='root')
@@ -39,15 +54,15 @@ class Database:
         try:
             con = self.connect_postgres()
             cur = con.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            cur.execute("select * from pg_database where datname = %(dname)s", {'dname': dbname })
+            cur.execute("select * from pg_database where datname = %(dname)s", {'dname': self.dbname })
             answer = cur.fetchall()
             if len(answer) > 0:
-                print "Database {} exists".format(dbname)
-                cur.execute("DROP DATABASE saleor")
-                cur.execute("DROP ROLE saleor")
+                print "Database {} exists".format(self.dbname)
+                cur.execute("DROP DATABASE {}".format(self.dbname))
+                cur.execute("DROP ROLE {}".format(self.dbuser))
                 self.create_database_resources(cur, con)
             else:
-                print "Database {} does NOT exist".format(dbname)
+                print "Database {} does NOT exist".format(self.dbname)
                 self.create_database_resources(cur, con)
         except Exception, e:
             print "Error %s" %e
@@ -58,11 +73,9 @@ class Database:
 
     def create_database_resources(self, cur, con):
         try:
-            cur.execute("CREATE ROLE saleor WITH SUPERUSER CREATEDB CREATEROLE LOGIN PASSWORD 'saleor'")
-            cur.execute('CREATE DATABASE {} OWNER saleor;'.format('saleor'))
+            cur.execute("CREATE ROLE {} WITH SUPERUSER CREATEDB CREATEROLE LOGIN PASSWORD '{}'".format(self.dbuser, self.dbpassword))
+            cur.execute('CREATE DATABASE {} OWNER {};'.format(self.dbname, self.dbuser))
             con.close()
-            # conn = psycopg2.connect("dbname='saleor' user='saleor' host='127.0.0.1' password='saleor'")
-            # conn.autocommit = True
             conn = self.connect_database()
             cur2 =conn.cursor()
             cur2.execute('CREATE EXTENSION {};'.format('hstore'))
@@ -111,5 +124,4 @@ class Database:
             conn2.close()
         except Exception, e:
             print (e)
-
-
+            

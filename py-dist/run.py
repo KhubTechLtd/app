@@ -255,8 +255,13 @@ if __name__ == '__main__':
         while time.time() < t + 0.1:
             appscreen.processEvents()
             info.check_if_migration_performed()
+    # check the ipaddress        
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip_address = str(s.getsockname()[0])+":8000"
+    s.close()
 
-    proc = subprocess.Popen(['python','..\\' + info.project_dir_name + '\manage.pyc','runserver','127.0.0.1:8000'])
+    proc = subprocess.Popen(['python','..\\' + info.project_dir_name + '\manage.pyc','runserver',ip_address])
     print("[pyqt.py] PyQt version: %s" % QtCore.PYQT_VERSION_STR)
     print("[pyqt.py] QtCore version: %s" % QtCore.qVersion())
 

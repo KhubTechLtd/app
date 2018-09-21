@@ -184,13 +184,14 @@ class MainFrame(QtGui.QWidget):
         windowInfo.SetAsChild(int(self.winId()))    
         while True:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            result = sock.connect_ex(('127.0.0.1',8000))
+            ip_address, server_ip = get_ip_address()
+            result = sock.connect_ex((server_ip,8000))
             sock.close()
             if result == 0:
                 break
         self.browser = cefpython.CreateBrowserSync(windowInfo,
                 browserSettings={},
-                navigateUrl=GetApplicationPath("http://127.0.0.1:8000"))
+                navigateUrl=GetApplicationPath("http://{}".format(ip_address)))
         self.show()
 
 
@@ -200,6 +201,16 @@ class MainFrame(QtGui.QWidget):
 
     def resizeEvent(self, event):
         cefpython.WindowUtils.OnSize(int(self.winId()), 0, 0, 0)
+
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+
+    ip_address = str(s.getsockname()[0])+":8000"
+    server_ip = str(s.getsockname()[0])
+    s.close()
+
+    return (ip_address, server_ip)
 
 class CefApplication(QtGui.QApplication):
     timer = None
@@ -256,10 +267,7 @@ if __name__ == '__main__':
             appscreen.processEvents()
             info.check_if_migration_performed()
     # check the ipaddress        
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("8.8.8.8", 80))
-    ip_address = str(s.getsockname()[0])+":8000"
-    s.close()
+    ip_address, server_ip = get_ip_address()
 
     proc = subprocess.Popen(['python','..\\' + info.project_dir_name + '\manage.pyc','runserver',ip_address])
     print("[pyqt.py] PyQt version: %s" % QtCore.PYQT_VERSION_STR)

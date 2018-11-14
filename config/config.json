@@ -2,12 +2,12 @@
 	"window" : {
 		"title": "Django2exe sample app",
     	"icon": "icon.png",
-    	"width": 800,
+    	"width": 1000,
     	"height": 600,
-    	"min_width": 800,
+    	"min_width": 1000,
     	"min_height": 600,
     	"fullscreen_allowed": "true", 
-    	"max_width": 800,
+    	"max_width": 1000,
     	"max_height": 600,
     	"dev_tools_menu_enabled": "true"
 	},

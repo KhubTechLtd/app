@@ -10,15 +10,22 @@ from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+from Plogger import Log
+from structlog import get_logger
 
 proc = None
+
+logger =  get_logger(__name__)
+
+
 class Info:
+    global logger
     def __init__(self):
-        self.initial_width = 800
+        self.initial_width = 1000
         self.initial_height = 600
         self.max_width = 0
         self.max_height = 0
-        self.min_width = 800
+        self.min_width = 1000
         self.min_height = 600
         self.window_title = "Ideal POS"
         self.icon_name = "icon.png"
@@ -33,8 +40,9 @@ class Info:
 
 
     def processconfiguration(self):
-        config_file_path = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', 'config','config.json'))
         try:
+            logger.info("Reading Config..")
+            config_file_path = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', 'config','config.json'))
             with open(config_file_path) as data_file:    
                 data = json.load(data_file)
                 self.splashscreen_img = data["splashscreen_img"]
@@ -59,8 +67,8 @@ class Info:
                 self.dbuser = database_data["dbuser"]
                 self.dbpassword = database_data["dbpassword"]
         except Exception as e:
-            print (e)
-            print ("Failed Reading Config")
+            logger.error("Failed Reading Config", message=e)
+            close_application("Failed Reading Config.")
 
     def check_if_migration_performed(self):
         if os.path.exists('db.pyc'):
@@ -81,6 +89,8 @@ if os.path.exists(info.libcef_dll):
         import cefpython_py34 as cefpython
     else:
         raise Exception("Unsupported python version: %s" % sys.version)
+        logger.error("Unsupported python version: %s" % sys.version)
+        close_application("Unsupported python version: %s" % sys.version)
 else:
     # Import an installed package
     from cefpython3 import cefpython
@@ -138,11 +148,21 @@ def ExceptHook(excType, excValue, traceObject):
     # you may get error like this:
     # | UnicodeEncodeError: 'charmap' codec can't encode characters
     errorMsg = errorMsg.encode("ascii", errors="replace")
-    errorMsg = errorMsg.decode("ascii", errors="replace")
     print("\n"+errorMsg+"\n")
     cefpython.QuitMessageLoop()
     cefpython.Shutdown()
     os._exit(1)
+
+
+def close_application(message=None):
+    text = "Could not start the Application."
+    if message:
+        text = text + " \n\n" + message
+    choice = QtGui.QMessageBox.critical(None, 'Error!',
+                                        text,
+                                        QtGui.QMessageBox.Ok)
+    # exit the system
+    sys.exit()
 
 class MainWindow(QtGui.QMainWindow):
     mainFrame = None
@@ -175,13 +195,15 @@ class MainWindow(QtGui.QMainWindow):
         subprocess.call(['taskkill', '/F', '/T', '/PID', str(proc.pid)])
         self.mainFrame.browser.CloseBrowser()
 
+
 class MainFrame(QtGui.QWidget):
     browser = None
 
     def __init__(self, parent=None):
         super(MainFrame, self).__init__(parent)
         windowInfo = cefpython.WindowInfo()
-        windowInfo.SetAsChild(int(self.winId()))    
+        windowInfo.SetAsChild(int(self.winId()))  
+
         while True:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             ip_address, server_ip = get_ip_address()
@@ -203,12 +225,17 @@ class MainFrame(QtGui.QWidget):
         cefpython.WindowUtils.OnSize(int(self.winId()), 0, 0, 0)
 
 def get_ip_address():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("8.8.8.8", 80))
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
 
-    ip_address = str(s.getsockname()[0])+":8000"
-    server_ip = str(s.getsockname()[0])
-    s.close()
+        ip_address = str(s.getsockname()[0])+":8000"
+        server_ip = str(s.getsockname()[0])
+        s.close()
+    except Exception as ex:
+        logger.error("could not get the ip address", exception=ex)
+        ip_address = "127.0.0.1:8000"
+        server_ip = "127.0.0.1"
 
     return (ip_address, server_ip)
 
@@ -240,18 +267,28 @@ class CefApplication(QtGui.QApplication):
 
 if __name__ == '__main__':
 
+    # setup structlog for logging
+    log = Log()
+    log.process_structlog()
+
+    # start main application
     appscreen = QApplication(sys.argv)
     info = Info()
     info.processconfiguration()
 
     # Create and display the splash screen
     splash_pix = QPixmap(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', 'img', info.splashscreen_img)))
-
-    splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
-    splash.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+    
+    """ splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
+        splash.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+        The (Qt.WindowStaysOnTopHint) option ensures the window is always on top
+        removed inorder for the error box to be on top of it
+    """
+    splash = QSplashScreen(splash_pix)
+    splash.setWindowFlags(Qt.FramelessWindowHint)
     splash.setEnabled(False)
 
-    # adding progress bar
+    # Progress bar
     progressBar = QProgressBar(splash)
     progressBar.setMaximum(10)
     progressBar.setGeometry(0, splash_pix.height() - 50, splash_pix.width(), 20)
@@ -266,8 +303,10 @@ if __name__ == '__main__':
         while time.time() < t + 0.1:
             appscreen.processEvents()
             info.check_if_migration_performed()
-    # check the ipaddress        
+    # Check the ipaddress        
     ip_address, server_ip = get_ip_address()
+
+    logger.info("get_ip_address details", server_ip=server_ip, ip_address=ip_address)
 
     proc = subprocess.Popen(['python','..\\' + info.project_dir_name + '\manage.pyc','runserver',ip_address])
     print("[pyqt.py] PyQt version: %s" % QtCore.PYQT_VERSION_STR)

@@ -308,7 +308,15 @@ if __name__ == '__main__':
 
     logger.info("get_ip_address details", server_ip=server_ip, ip_address=ip_address)
 
-    proc = subprocess.Popen(['python','..\\' + info.project_dir_name + '\manage.pyc','runserver',ip_address])
+    proc = subprocess.Popen(['python','..\\' + info.project_dir_name + '\manage.pyc','runserver',ip_address]) 
+
+    try:
+        file = open("proc.txt","w")
+        file.write(str(os.getpid()))
+        file.close()
+    except Exception as e:
+        logger.error("record the process id", exception=e)
+
     print("[pyqt.py] PyQt version: %s" % QtCore.PYQT_VERSION_STR)
     print("[pyqt.py] QtCore version: %s" % QtCore.qVersion())
 

@@ -21,5 +21,4 @@ goto :eof
     rem put your code here
     set par1=%1
     taskkill /F /T /PID %par1%
-    pause
 goto :eof
